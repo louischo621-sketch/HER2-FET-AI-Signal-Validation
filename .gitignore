@@ -1,0 +1,11 @@
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+.env
+.DS_Store
+
+raw_data/
+data/*.csv
+*.joblib
+*.h5
+*.keras
