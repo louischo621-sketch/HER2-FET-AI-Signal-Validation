@@ -1,142 +1,111 @@
-# HER2 FET AI Signal Validation and Calibration Curve Construction
+# AI-Assisted HER2 FET Signal Validation and Calibration Curve Construction
 
-## Project Title
+本專題建立一套 AI 輔助 HER2 FET 生物感測訊號驗證流程，目的不是直接進行臨床診斷，而是判斷哪些感測通道具有穩定且可用於濃度檢量線建構的訊號品質。
 
-Breast Cancer Distant Metastasis Risk Prediction Model  
-— HER2 FET Signal Validation and Calibration Curve Construction Using Physics-Guided 1-D CNN
+## Project Overview
 
-## Overview
+EDL-FET / FET 生物感測器在量測 HER2 濃度時，不同晶片與不同 Channel 可能受到初始偏移、雜訊、漂移與非單調響應影響。若直接將所有通道納入檢量線，可能會降低濃度響應的一致性。
 
-This project develops an AI-assisted signal validation workflow for HER2 field-effect transistor (FET) biosensor data.  
-The goal is not to directly diagnose breast cancer or predict clinical metastasis, but to improve the reliability of HER2 calibration curve construction by filtering low-quality sensing channels.
+因此，本研究結合：
 
-The proposed method combines physics-guided rules and a 1-D convolutional neural network (1-D CNN) to identify valid FET sensing channels before establishing the HER2 calibration curve.
+- Physics-guided teacher rules
+- 1-D CNN waveform learning
+- Physical feature extraction
+- Leave-One-Experiment-Out validation
+- HER2 calibration curve comparison
 
-## Research Motivation
-
-HER2 is an important biomarker related to breast cancer classification, disease evaluation, and targeted therapy selection.  
-FET-based biosensors can convert biomolecular binding events into electrical current responses. However, real experimental signals may be affected by channel variation, baseline drift, background noise, sensor batch differences, and measurement conditions.
-
-If all sensing channels are directly used for calibration curve construction, low-response, noisy, or non-monotonic channels may reduce the reliability of the calibration result.
+建立一套可解釋的訊號品質驗證方法。
 
 ## Dataset
 
-The dataset consists of HER2 FET experimental CSV files.
+本研究使用 9 份 HER2 FET 實驗 CSV 資料。每份實驗包含 9 個 Channel，其中 Channel 9 作為參考或機台穩定性觀察通道，因此不納入主要 HER2 感測分析。
 
-Each experiment contains multiple sensing channels and sequential measurement stages:
+主要分析資料：
 
-- PBS baseline
-- 1 ng/mL HER2
-- 5 ng/mL HER2
-- 10 ng/mL HER2
-- 15 ng/mL HER2
-- 25 ng/mL HER2
+- 9 experiments
+- 8 sensing channels per experiment
+- Total: 72 analyzed channels
+- Concentration stages: PBS, 1, 5, 10, 15, 25 ng/mL HER2
 
-Channel 9 was excluded from the main analysis because it was treated as a reference or machine-stability channel.
-
-After excluding Channel 9, a total of 72 channel time-series signals were analyzed.
+原始 CSV 檔因資料管理限制未公開於本 repository，僅提供分析流程、程式與主要結果。
 
 ## Methodology
 
-The analysis workflow includes:
-
-1. Load HER2 FET CSV data
-2. Exclude Channel 9
-3. Segment the signal into PBS and HER2 concentration stages
-4. Extract steady-state responses
-5. Compute physical features, including:
-   - final drop
-   - PBS noise
-   - signal-to-noise ratio
-   - slope
-   - monotonicity score
-   - linear R²
-   - logarithmic R²
+1. Load HER2 FET CSV files
+2. Exclude Channel 9 reference channel
+3. Segment PBS and HER2 concentration stages
+4. Extract steady-state signal response
+5. Compute physical features such as signal drop, slope, SNR, monotonicity, and R2
 6. Generate physics-guided teacher pseudo-labels
-7. Train a physics-guided 1-D CNN model
-8. Compare Teacher labels and CNN predictions
-9. Select consensus valid channels
-10. Construct HER2 calibration curves
+7. Train a dual-input 1-D CNN model
+8. Evaluate the model using Leave-One-Experiment-Out validation
+9. Compare calibration curves before and after signal validation
 
-## Physics-Guided Teacher Rules
+## Model Design
 
-A channel is labeled as valid only if it satisfies all of the following conditions:
+The proposed model contains two input branches:
 
-- final drop > 0.05
-- final drop ≥ 3 × PBS standard deviation
-- positive linear or logarithmic response slope
-- monotonicity score ≥ 0.75
-- linear R² or logarithmic R² ≥ 0.75
+- Waveform branch: learns time-series signal patterns from normalized current responses
+- Feature branch: learns physics-based signal descriptors extracted from each channel
 
-The teacher label is a physics-guided pseudo-label, not an independent expert ground truth.
+The final output is an AI valid probability, indicating whether a channel is suitable for calibration curve construction.
 
-## CNN Model
+## Evaluation Results
 
-The 1-D CNN model uses both waveform inputs and physical features.
-
-The waveform input consists of three channels:
-
-- raw-normalized signal
-- z-score normalized signal
-- derivative signal
-
-The physical feature branch includes manually extracted interpretable indicators such as final drop, SNR, R², monotonicity score, and PBS noise.
-
-The model outputs an AI valid score for each sensing channel.
-
-## Results
-
-The main results are summarized as follows:
-
-| Category | Number of Channels |
-|---|---:|
-| Total channels | 72 |
-| Teacher valid channels | 11 |
-| CNN valid channels | 12 |
-| Consensus valid channels | 10 |
-| AI rescue candidates | 2 |
-| AI rejection candidates | 1 |
-
-The CNN showed high consistency with the physics-guided teacher labels.
+The model was evaluated against physics-guided teacher pseudo-labels.
 
 | Metric | Value |
 |---|---:|
 | Accuracy | 0.958 |
-| Precision | 0.833 |
-| Recall | 0.909 |
+| Precision (Valid) | 0.833 |
+| Recall (Valid) | 0.909 |
 | F1-score | 0.870 |
 | MCC | 0.846 |
 | Cohen's kappa | 0.845 |
 | ROC-AUC | 0.934 |
 | PR-AUC | 0.848 |
 
-The HER2 logarithmic calibration curve improved after consensus channel selection.
+Confusion matrix result:
 
-| Method | Channels | Linear R² | Log R² | Estimated LOD |
+- Teacher Invalid / AI Invalid: 59
+- Teacher Invalid / AI Valid: 2
+- Teacher Valid / AI Invalid: 1
+- Teacher Valid / AI Valid: 10
+
+## Calibration Curve Comparison
+
+| Method | Channels | Linear R2 | Log R2 | Estimated LOD |
 |---|---:|---:|---:|---:|
 | All channels | 72 | 0.837 | 0.920 | 41.156 |
 | Teacher valid | 11 | 0.925 | 0.958 | 11.588 |
 | CNN valid | 12 | 0.886 | 0.910 | 18.177 |
 | Consensus valid | 10 | 0.913 | 0.963 | 11.645 |
 
+After signal validation, the consensus-valid channels achieved a higher logarithmic calibration R2 and a lower estimated LOD compared with all channels. This indicates that combining physical rules with AI-based signal validation can improve the consistency and sensitivity of HER2 calibration curve construction.
+
+## Repository Structure
+
+```text
+HER2-FET-AI-Signal-Validation/
+│
+├── README.md
+├── requirements.txt
+├── .gitignore
+│
+├── data/
+│   └── README.md
+│
+├── notebooks/
+│   ├── README.md
+│   └── HER2_FET_AI_signal_validation.ipynb
+│
+└── results/
+    ├── README.md
+    └── her2_fet_ai_validation_paper_figures_human_fig04.zip
 ## Conclusion
 
-The results show that the physics-guided 1-D CNN can assist in HER2 FET signal quality validation before calibration curve construction.  
-The consensus mechanism between physical rules and CNN prediction helps remove low-response, noisy, and non-monotonic channels, improving the consistency and interpretability of the HER2 calibration curve.
+本研究證明，AI 並非用來取代 HER2 檢量線，而是作為檢量線建立前的訊號品質驗證工具。透過 physics-guided rules 與 1-D CNN 分類模型，本研究可自動辨識較可靠的 FET 感測通道，降低低品質訊號對檢量線的干擾，進而提升 HER2 濃度分析的一致性與可解釋性。
 
-However, this model is currently based on pseudo-labels, limited experimental data, and the same dataset used for signal screening and calibration evaluation. More independent experiments, blank repeated measurements, and expert-labeled data are required for future validation.
+## Notes
 
-## Future Work
-
-Future work will include:
-
-- increasing independent experimental batches
-- collecting more blank repeated measurements
-- introducing expert-labeled ground truth
-- validating the model on different chips and sensing conditions
-- extending the workflow to other biomarkers and FET biosensor platforms
-
-## Disclaimer
-
-This project is intended for HER2 FET biosensor signal validation and calibration curve construction.  
-It is not a clinical diagnostic system and should not be interpreted as a validated breast cancer metastasis prediction tool.
+本專題僅用於學術研究與 FET 訊號品質驗證。目前結果不應解讀為臨床 HER2 診斷效能，也不能直接作為乳癌診斷或治療判斷依據。
