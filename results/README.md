@@ -1,6 +1,6 @@
 # Results
 
-This folder contains the main figures generated from the HER2 FET AI-assisted signal validation workflow.
+This folder contains the main figures generated from the breast cancer distant metastasis risk prediction project, focusing on HER2 EDL-FET calibration curve construction and signal validation.
 
 ## Key Figures
 
